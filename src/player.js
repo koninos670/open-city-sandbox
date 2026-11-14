@@ -43,7 +43,7 @@
     for (var k in WEAPONS) P.ammo[k] = { mag: WEAPONS[k].mag, reserve: WEAPONS[k].reserve };
     P.ammo.smg = { mag: 30, reserve: 90 };
 
-    P.obj = M.human({ shirt: 0x2f3a4d, pants: 0x22262c, skin: 0xd8a878, gunProp: false });
+    P.obj = M.human({ shirt: 0x2f3a4d, pants: 0x22262c, skin: 0xd8a878, gunProp: false, detail: true });
     P.obj.position.set(P.x, 0, P.z);
     scene.add(P.obj);
     P.camera = camera;
@@ -57,7 +57,9 @@
     var grip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.2, 0.1), gm); grip.position.set(0, -0.14, 0.02);
     P.gunProp.add(body, barrel, grip);
     P.gunProp.visible = false;
-    P.obj.userData.parts.armR.add(P.gunProp);
+    var _pr = P.obj.userData.parts;
+    P.gunProp.position.set(0, -0.09, 0.07);
+    (_pr.handR || _pr.armR).add(P.gunProp);
   };
 
   // --------------------------------------------------------------- helpers
@@ -232,7 +234,8 @@
       car.driver = 'player';
     }
     P.onFoot = false;
-    P.obj.visible = false;
+    P.obj.visible = P.camMode !== 1;
+    P.gunProp.visible = false;
     P.vf = 0; P.vr = 0;
     P.yaw = car.yaw;
     G.hud.toast(car.model.type + ' acquired');
@@ -348,17 +351,13 @@
     } else if (!P.moving) {
       P.phase = U.damp(P.phase, Math.round(P.phase / Math.PI) * Math.PI, 6, dt);
     }
-    M.animateHuman(P.obj, P.phase, P.moving ? (sprint ? 1.25 : 0.85) : 0.12, P.aim);
+    M.animateHuman(P.obj, P.phase, P.moving ? (sprint ? 1.25 : 0.85) : 0.12, false);
     P.obj.position.set(P.x, P.y, P.z);
     P.obj.rotation.y = P.yaw;
 
     var armed = P.weapon && P.owned[P.weapon];
     P.gunProp.visible = !!armed;
-    if (P.aim) {
-      P.obj.userData.parts.armR.rotation.x = -1.55 + P.camPitch * 0.6;
-      P.obj.userData.parts.armR.rotation.z = -0.12;
-      P.obj.userData.parts.armL.rotation.x = -1.35;
-    }
+    if (P.aim) M.aimPose(P.obj, P.camPitch);
     if (input.fire && armed) {
       if (WEAPONS[P.weapon].auto || !P.firedThisPress) { P.fire(); P.firedThisPress = true; }
     } else { P.firedThisPress = false; }
@@ -387,11 +386,11 @@
     if (hand) vf -= vf * 1.4 * dt;
     vf = U.clamp(vf, -9, maxFwd);
 
-    var steer = mi.s;
+    var steer = -mi.s;                                 // D steers right, A steers left
     var grip = hand ? 1.4 : 8.5;
     var yawRate = steer * 2.3 * U.clamp(Math.abs(vf) / 9, 0, 1) * U.sign(vf || 1);
     P.yaw += yawRate * dt;
-    vr += -yawRate * vf * 0.35 * dt;                   // mild sideways slide when steering hard
+    vr += yawRate * vf * 0.35 * dt;                    // body slides to the outside of the turn
     vr *= Math.exp(-grip * dt);
 
     var fx2 = Math.sin(P.yaw), fz2 = Math.cos(P.yaw);
@@ -461,6 +460,12 @@
 
     car.obj.position.set(car.x, 0, car.z);
     car.obj.rotation.y = car.yaw;
+
+    // the player rides in the driver seat: local +X is the car's left, +Z its nose
+    var st = car.model.seat, cy = Math.cos(car.yaw), sy2 = Math.sin(car.yaw);
+    M.seatedPose(P.obj, steer);
+    P.obj.position.set(car.x - st.x * cy + st.z * sy2, st.y, car.z + st.x * sy2 + st.z * cy);
+    P.obj.rotation.y = car.yaw;
     // body roll + pitch for a bit of weight transfer
     car.obj.rotation.z = U.damp(car.obj.rotation.z, -steer * U.clamp(vf / maxFwd, 0, 1) * 0.06, 6, dt);
     for (var w = 0; w < car.model.wheels.length; w++) {
@@ -501,7 +506,7 @@
       cam.rotation.set(-P.camPitch, P.camYaw + Math.PI, 0, 'YXZ');
       P.obj.visible = false;
     } else {
-      if (!P.onFoot) P.obj.visible = false;
+      if (!P.onFoot && P.camMode === 1) P.obj.visible = false;
       var back = dist;
       // pull the camera in when a building is in the way
       for (var s = 0.4; s <= 1.0; s += 0.2) {
@@ -521,7 +526,7 @@
       cam.position.y += U.rand(-1, 1) * P.shake * 0.06;
       cam.position.z += U.rand(-1, 1) * P.shake * 0.06;
     }
-    if (P.camMode !== 1 && P.onFoot) P.obj.visible = true;
+    if (P.camMode !== 1) P.obj.visible = true;
   }
 
 })(window.G);

@@ -42,7 +42,7 @@
 
   // ------------------------------------------------------------------ foot officers
   function spawnCop(x, z) {
-    var obj = M.human({ shirt: 0x1b2c4a, pants: 0x14181f, skin: U.pick([0xd8a878, 0xc98f5e, 0x8a5a3a]), vest: true, hat: true, gunProp: true });
+    var obj = M.human({ shirt: 0x1b2c4a, pants: 0x14181f, skin: U.pick([0xd8a878, 0xc98f5e, 0x8a5a3a]), vest: true, hat: true, gunProp: true, detail: true });
     scene.add(obj);
     var cop = {
       obj: obj, kind: 'cop', alive: true, hp: 130, maxHp: 130,
@@ -141,7 +141,7 @@
     var mR = new THREE.MeshStandardMaterial({ color: 0x000022, emissive: 0x2050ff, emissiveIntensity: 0 });
     var a = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.2), mL); a.position.x = -0.24;
     var b = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.12, 0.2), mR); b.position.x = 0.24;
-    bar.add(a, b); bar.position.set(0, 1.06, -0.2);
+    bar.add(a, b); bar.position.set(0, model.roofY + 0.07, -0.2);
     model.group.add(bar);
 
     var p = G.city.randomRoadPoint(player, 130);

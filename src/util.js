@@ -3,7 +3,7 @@ window.G = window.G || {};
 
 /* Bumped whenever the game changes, so a stale cached page is easy to spot: the
    badge in the corner of the HUD shows this number. */
-G.BUILD = 5;
+G.BUILD = 6;
 
 (function (G) {
   'use strict';
@@ -108,19 +108,79 @@ G.BUILD = 5;
     return { map: map, emissive: emis };
   };
 
+  // Asphalt tile: grain, tar seams, worn patches. Repeat is baked into the
+  // mesh UVs (metres), so this must stay free of directional features.
   U.roadTexture = function () {
-    var c = canvas(128, 256), x = c.getContext('2d');
-    x.fillStyle = '#2b2b30'; x.fillRect(0, 0, 128, 256);
-    for (var i = 0; i < 4000; i++) {
-      var v = 40 + Math.random() * 80;
-      x.fillStyle = 'rgba(' + (v | 0) + ',' + (v | 0) + ',' + ((v + 4) | 0) + ',.5)';
-      x.fillRect(Math.random() * 128, Math.random() * 256, 2, 2);
+    var c = canvas(256, 256), x = c.getContext('2d');
+    x.fillStyle = '#33333a'; x.fillRect(0, 0, 256, 256);
+    for (var i = 0; i < 2600; i++) {
+      var v = 38 + Math.random() * 46;
+      x.fillStyle = 'rgba(' + (v | 0) + ',' + (v | 0) + ',' + ((v + 5) | 0) + ',' + (0.25 + Math.random() * 0.4) + ')';
+      x.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
     }
-    // dashed centre line (runs along V)
-    x.fillStyle = '#e8c34a';
-    for (var y = 0; y < 256; y += 64) x.fillRect(62, y, 4, 34);
+    // light grain so the surface is not flat grey
+    for (var g = 0; g < 900; g++) {
+      var w = 90 + Math.random() * 60 | 0;
+      x.fillStyle = 'rgba(' + w + ',' + w + ',' + (w - 4) + ',' + (0.08 + Math.random() * 0.12) + ')';
+      x.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    }
+    // worn / patched areas
+    for (var p = 0; p < 9; p++) {
+      var px = Math.random() * 256, py = Math.random() * 256, pr = 18 + Math.random() * 46;
+      var grd = x.createRadialGradient(px, py, 2, px, py, pr);
+      var dark = Math.random() < 0.5;
+      grd.addColorStop(0, dark ? 'rgba(28,28,33,.5)' : 'rgba(72,72,78,.32)');
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      x.fillStyle = grd; x.beginPath(); x.arc(px, py, pr, 0, Math.PI * 2); x.fill();
+    }
+    // tar seams and hairline cracks
+    x.lineWidth = 2;
+    for (var s = 0; s < 7; s++) {
+      x.strokeStyle = 'rgba(18,18,22,.55)';
+      x.beginPath();
+      var sx = Math.random() * 256, sy = Math.random() * 256;
+      x.moveTo(sx, sy);
+      for (var q = 0; q < 4; q++) x.lineTo(sx += (Math.random() - 0.5) * 90, sy += (Math.random() - 0.5) * 90);
+      x.stroke();
+    }
+    x.lineWidth = 1;
+    for (var k = 0; k < 14; k++) {
+      x.strokeStyle = 'rgba(20,20,24,.4)';
+      x.beginPath();
+      var ax = Math.random() * 256, ay = Math.random() * 256;
+      x.moveTo(ax, ay);
+      for (var kk = 0; kk < 5; kk++) x.lineTo(ax += (Math.random() - 0.5) * 40, ay += (Math.random() - 0.5) * 40);
+      x.stroke();
+    }
     var t = new THREE.CanvasTexture(c);
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
+    return t;
+  };
+
+  // Paving slabs for the sidewalks: 4x4 blocks of kerbstone-sized tiles.
+  U.paveTexture = function () {
+    var c = canvas(256, 256), x = c.getContext('2d');
+    x.fillStyle = '#8f8d86'; x.fillRect(0, 0, 256, 256);
+    var cell = 64, j = 3;
+    for (var ry2 = 0; ry2 < 4; ry2++) {
+      for (var rx2 = 0; rx2 < 4; rx2++) {
+        var v = 138 + Math.random() * 32 | 0;
+        x.fillStyle = 'rgb(' + v + ',' + (v - 1) + ',' + (v - 7) + ')';
+        x.fillRect(rx2 * cell + j, ry2 * cell + j, cell - j * 2, cell - j * 2);
+        x.fillStyle = 'rgba(64,62,58,.85)';                 // joints
+        x.fillRect(rx2 * cell, ry2 * cell, cell, j);
+        x.fillRect(rx2 * cell, ry2 * cell, j, cell);
+        for (var sp = 0; sp < 90; sp++) {                    // stone speckle
+          var sv = 110 + Math.random() * 90 | 0;
+          x.fillStyle = 'rgba(' + sv + ',' + sv + ',' + (sv - 6) + ',.35)';
+          x.fillRect(rx2 * cell + j + Math.random() * (cell - j * 2), ry2 * cell + j + Math.random() * (cell - j * 2), 1, 1);
+        }
+      }
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
     return t;
   };
 
@@ -144,6 +204,112 @@ G.BUILD = 5;
     g.addColorStop(1, 'rgba(0,0,0,0)');
     x.fillStyle = g; x.fillRect(0, 0, s, s);
     return new THREE.CanvasTexture(c);
+  };
+
+  // A face for the head sphere. Sphere UVs put the front of the head at u=0.25,
+  // the chin at v=1 and the crown at v=0; texture flipY means v=1 lands on the
+  // top row of the canvas, so everything below is written through fy().
+  var faceCache = {};
+  U.faceTexture = function (skin, hair) {
+    var key = skin + '_' + hair;
+    if (faceCache[key]) return faceCache[key];
+    var s = 128, c = canvas(s, s), x = c.getContext('2d');
+    function hex(v) { return '#' + ('000000' + v.toString(16)).slice(-6); }
+    function fy(v) { return (1 - v) * s; }
+    function shade(amount) {          // lighten/darken a packed hex colour
+      var r = U.clamp(((skin >> 16) & 255) + amount, 0, 255);
+      var g = U.clamp(((skin >> 8) & 255) + amount, 0, 255);
+      var b = U.clamp((skin & 255) + amount, 0, 255);
+      return 'rgb(' + (r | 0) + ',' + (g | 0) + ',' + (b | 0) + ')';
+    }
+    x.fillStyle = hex(skin); x.fillRect(0, 0, s, s);
+    // jaw and cheek shading, slightly darker toward the chin
+    var grad = x.createLinearGradient(0, fy(0.85), 0, fy(0.5));
+    grad.addColorStop(0, 'rgba(0,0,0,0.22)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = grad; x.fillRect(0, fy(0.85), s, fy(0.5) - fy(0.85));
+    // hair: whole crown plus the back of the head
+    x.fillStyle = hex(hair);
+    x.fillRect(0, fy(0.34), s, s - fy(0.34));
+    x.fillRect(s * 0.55, fy(0.60), s * 0.40, s - fy(0.60));
+    x.fillRect(s * 0.05, fy(0.60), s * 0.10, s - fy(0.60));
+    x.beginPath(); x.arc(s * 0.25, fy(0.34), s * 0.16, 0, Math.PI * 2); x.fill();  // fringe
+    // ears
+    x.fillStyle = shade(-14);
+    [-0.115, 0.115].forEach(function (du) {
+      x.beginPath(); x.ellipse(s * (0.25 + du), fy(0.55), s * 0.022, s * 0.042, 0, 0, Math.PI * 2); x.fill();
+    });
+    // eyebrows
+    x.fillStyle = hex(hair);
+    [-0.055, 0.055].forEach(function (du) {
+      x.beginPath(); x.ellipse(s * (0.25 + du), fy(0.515), s * 0.040, s * 0.011, 0, 0, Math.PI * 2); x.fill();
+    });
+    // eyes
+    [-0.055, 0.055].forEach(function (du) {
+      x.fillStyle = '#f3efe9';
+      x.beginPath(); x.ellipse(s * (0.25 + du), fy(0.55), s * 0.036, s * 0.024, 0, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#3b2a1d';
+      x.beginPath(); x.arc(s * (0.25 + du), fy(0.55), s * 0.017, 0, Math.PI * 2); x.fill();
+      x.fillStyle = '#120d09';
+      x.beginPath(); x.arc(s * (0.25 + du), fy(0.55), s * 0.008, 0, Math.PI * 2); x.fill();
+    });
+    // nose and mouth
+    x.fillStyle = 'rgba(0,0,0,0.16)';
+    x.beginPath(); x.ellipse(s * 0.25, fy(0.605), s * 0.026, s * 0.030, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = 'rgba(90,45,40,0.75)';
+    x.beginPath(); x.ellipse(s * 0.25, fy(0.665), s * 0.048, s * 0.013, 0, 0, Math.PI * 2); x.fill();
+    var t = new THREE.CanvasTexture(c);
+    faceCache[key] = t;
+    return t;
+  };
+
+  // ---- geometry merging ----
+  // Detail without draw calls: everything added to one builder comes out as a
+  // single BufferGeometry, so it costs one mesh per material instead of one per
+  // box. Inputs are baked into world/parent space by their matrix.
+  var mergeGeo = {};   // shared unit shapes for the merge builder
+  U.merge = function () {
+    var pos = [], nor = [], uv = [];
+    var _v = new THREE.Vector3(), _n = new THREE.Vector3(), _m3 = new THREE.Matrix3();
+    var _e = new THREE.Euler(), _e2 = new THREE.Euler(), _q = new THREE.Quaternion(), _q2 = new THREE.Quaternion();
+    var _v0 = new THREE.Vector3(), _v1 = new THREE.Vector3();
+    var api = {
+      raw: function (geo, mtx, um, vm) {
+        var g = geo.index ? geo.toNonIndexed() : geo;
+        var p = g.attributes.position.array, n = g.attributes.normal.array;
+        var t = g.attributes.uv ? g.attributes.uv.array : null;
+        _m3.getNormalMatrix(mtx);
+        for (var i = 0, k = 0; i < p.length; i += 3, k += 2) {
+          _v.set(p[i], p[i + 1], p[i + 2]).applyMatrix4(mtx);
+          pos.push(_v.x, _v.y, _v.z);
+          _n.set(n[i], n[i + 1], n[i + 2]).applyMatrix3(_m3).normalize();
+          nor.push(_n.x, _n.y, _n.z);
+          if (t) uv.push(t[k] * (um === undefined ? 1 : um), t[k + 1] * (vm === undefined ? 1 : vm)); else uv.push(0, 0);
+        }
+      },
+      box: function (w, h, d, x, y, z, rx, ry, rz) {
+        var q = _q.setFromEuler(_e.set(rx || 0, ry || 0, rz || 0));
+        var m = new THREE.Matrix4().compose(_v0.set(x || 0, y || 0, z || 0), q, _v1.set(w, h, d));
+        api.raw(mergeGeo.__unitBox || (mergeGeo.__unitBox = new THREE.BoxGeometry(1, 1, 1)), m);
+      },
+      // flat rectangle lying in the XZ plane (roads, markings, decals)
+      // tile = texture repeats per metre (UVs are baked in world units)
+      plate: function (w, d, x, y, z, ry, tile) {
+        var q = _q.setFromEuler(_e.set(Math.PI / 2, 0, 0));
+        _q2.setFromEuler(_e2.set(0, ry || 0, 0)).multiply(q);
+        var m = new THREE.Matrix4().compose(_v0.set(x || 0, y || 0, z || 0), _q2, _v1.set(w, d, 1));
+        api.raw(mergeGeo.__unitPlane || (mergeGeo.__unitPlane = new THREE.PlaneGeometry(1, 1)), m,
+          tile ? w * tile : undefined, tile ? d * tile : undefined);
+      },
+      count: function () { return pos.length / 9; },
+      build: function () {
+        var g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+        g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+        g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+        return g;
+      }
+    };
+    return api;
   };
 
   // ---- geometry queries ----

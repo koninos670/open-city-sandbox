@@ -102,7 +102,7 @@
 
   // ------------------------------------------------------------------ people
   function makePed(pos, panicked) {
-    var obj = M.human({ gunProp: false });
+    var obj = M.human({ gunProp: false, detail: true });
     var ped = {
       obj: obj, kind: 'ped', alive: true, hp: 100, maxHp: 100,
       x: pos ? pos.x : 0, z: pos ? pos.z : 0, yaw: 0, phase: U.rand(0, 6),

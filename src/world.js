@@ -134,8 +134,12 @@
     scene.add(groups);
 
     var roadTex = U.roadTexture(), grass = U.grassTexture();
-    var roadMat = new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.95, metalness: 0.02, color: 0xffffff });
-    var walkMat = new THREE.MeshStandardMaterial({ map: U.noiseTexture(128, '#9a9a94', 26, 4), roughness: 0.95 });
+    var walkTex = U.paveTexture();
+    walkTex.repeat.set(7.9, 7.9);                     // 19 m slab, 2.4 m of paving per tile
+    var walkMat = new THREE.MeshStandardMaterial({ map: walkTex, roughness: 0.92, metalness: 0.02 });
+    var curbMat = new THREE.MeshStandardMaterial({ color: 0xb6b3aa, roughness: 0.9 });
+    var paintMat = new THREE.MeshStandardMaterial({ color: 0xf2f2ee, roughness: 0.7 });
+    var paintMatY = new THREE.MeshStandardMaterial({ color: 0xe3c249, roughness: 0.7 });
 
     // ground plane (grass fields around the city)
     var gTex = grass.clone(); gTex.needsUpdate = true; gTex.repeat.set(60, 60);
@@ -144,47 +148,102 @@
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.02; ground.receiveShadow = true;
     groups.add(ground);
 
-    // roads: one long strip per grid line, in both axes
-    var stripe = ROAD / 2;
+    // ---- asphalt: the whole grid in one mesh (UVs are baked in metres) ----
+    var asphalt = U.merge();
+    var tile = 0.22;                                  // ~4.5 m of asphalt per texture tile
     for (var i = 0; i <= GRID; i++) {
       var c = -HALF + i * BLOCK;
-      var tA = roadTex.clone(); tA.needsUpdate = true; tA.repeat.set(1, WORLD / 12);
-      var tB = roadTex.clone(); tB.needsUpdate = true; tB.repeat.set(1, WORLD / 12);
-      var mX = roadMat.clone(); mX.map = tA;
-      var mZ = roadMat.clone(); mZ.map = tB;
-      var alongX = new THREE.Mesh(new THREE.PlaneGeometry(WORLD + ROAD, ROAD), mX);
-      alongX.rotation.x = -Math.PI / 2; alongX.position.set(0, 0.01, c); alongX.receiveShadow = true;
-      alongX.rotation.z = Math.PI / 2;
-      groups.add(alongX);
-      var alongZ = new THREE.Mesh(new THREE.PlaneGeometry(ROAD, WORLD + ROAD), mZ);
-      alongZ.rotation.x = -Math.PI / 2; alongZ.position.set(c, 0.01, 0); alongZ.receiveShadow = true;
-      groups.add(alongZ);
+      asphalt.plate(WORLD + ROAD, ROAD, 0, 0.01, c, 0, tile);
+      asphalt.plate(ROAD, WORLD + ROAD, c, 0.014, 0, 0, tile);
     }
+    var roadMesh = new THREE.Mesh(asphalt.build(),
+      new THREE.MeshStandardMaterial({ map: roadTex, roughness: 0.93, metalness: 0.03 }));
+    roadMesh.receiveShadow = true;
+    groups.add(roadMesh);
 
-    // sidewalk slabs + buildings per block
+    // ---- painted road markings, merged by colour ----
+    var halfR = ROAD / 2;
+    var white = U.merge(), yellow = U.merge();
+    var GAP = halfR + 3.6;                            // keep paint clear of the intersection box
+    var CROSS = halfR + 1.9;                          // centre of the zebra crossing
+    function spans(fn) {
+      for (var i = 0; i < GRID; i++) {
+        fn(-HALF + i * BLOCK + GAP, -HALF + (i + 1) * BLOCK - GAP);
+      }
+    }
+    function paint(isYellow, alongX, c, off, len, mid, wide) {
+      var b = isYellow ? yellow : white;
+      if (alongX) b.plate(len, wide, mid, 0.035, c + off, 0);
+      else b.plate(wide, len, c + off, 0.035, mid, 0);
+    }
+    for (var mi = 0; mi <= GRID; mi++) {
+      var mc = -HALF + mi * BLOCK;
+      [true, false].forEach(function (isAlongX) {
+        var c = mc;
+        spans(function (a, b) {
+          var mid = (a + b) / 2, len = b - a;
+          paint(false, isAlongX, c, -halfR + 0.5, len, mid, 0.15);   // solid edge lines
+          paint(false, isAlongX, c, halfR - 0.5, len, mid, 0.15);
+          paint(true, isAlongX, c, -0.2, len, mid, 0.12);            // double yellow centre
+          paint(true, isAlongX, c, 0.2, len, mid, 0.12);
+          for (var d = a + 1; d < b - 3; d += 8) {                   // dashed lane dividers
+            paint(false, isAlongX, c, -ROAD / 4, 3, d + 1.5, 0.14);
+            paint(false, isAlongX, c, ROAD / 4, 3, d + 1.5, 0.14);
+          }
+        });
+      });
+    }
+    // zebra crossings on every approach to every intersection
+    for (var gx = 0; gx <= GRID; gx++) {
+      for (var gz = 0; gz <= GRID; gz++) {
+        var ix = -HALF + gx * BLOCK, iz = -HALF + gz * BLOCK;
+        for (var sgn = -1; sgn <= 1; sgn += 2) {
+          for (var k = -6; k <= 6; k++) {
+            white.plate(0.55, 3.2, ix + k * 1.1, 0.035, iz + sgn * CROSS, 0);
+            white.plate(3.2, 0.55, ix + sgn * CROSS, 0.035, iz + k * 1.1, 0);
+          }
+        }
+      }
+    }
+    groups.add(new THREE.Mesh(white.build(), paintMat));
+    groups.add(new THREE.Mesh(yellow.build(), paintMatY));
+
+    // ---- sidewalk slabs + buildings per block ----
     var rng = U.rng;
     for (var bx = 0; bx < GRID; bx++) {
       for (var bz = 0; bz < GRID; bz++) {
         var cx = -HALF + (bx + 0.5) * BLOCK, cz = -HALF + (bz + 0.5) * BLOCK;
-        var half = (BLOCK - ROAD) / 2;              // 19
-        var slab = new THREE.Mesh(new THREE.BoxGeometry(half * 2, CURB, half * 2),
-          walkMat.clone());
-        slab.material.map = walkMat.map.clone(); slab.material.map.needsUpdate = true;
-        slab.material.map.repeat.set(half / 2.5, half / 2.5);
+        var halfb = (BLOCK - ROAD) / 2;              // 19
+        var slab = new THREE.Mesh(new THREE.BoxGeometry(halfb * 2, CURB, halfb * 2), walkMat);
         slab.position.set(cx, CURB / 2, cz);
         slab.receiveShadow = true;
         groups.add(slab);
 
         var isPark = rng() < 0.07 || (Math.abs(cx) < 20 && Math.abs(cz) < 20);
         if (isPark) {
-          city.parks.push({ x: cx, z: cz, r: half - 1 });
-          addPark(groups, cx, cz, half - 1.5);
-          city.addBox(cx - half, CURB, cz - half, cx + half, 6, cz + half, 'park');
+          city.parks.push({ x: cx, z: cz, r: halfb - 1 });
+          addPark(groups, cx, cz, halfb - 1.5);
+          city.addBox(cx - halfb, CURB, cz - halfb, cx + halfb, 6, cz + halfb, 'park');
           continue;
         }
         layoutBlock(groups, cx, cz, 14.5);
       }
     }
+
+    // ---- kerb stones around every block (one merged mesh) ----
+    var curbs = U.merge();
+    var kerbH = CURB + 0.03, kerbW = 0.42;
+    for (var kx = 0; kx < GRID; kx++) {
+      for (var kz = 0; kz < GRID; kz++) {
+        var ccx = -HALF + (kx + 0.5) * BLOCK, ccz = -HALF + (kz + 0.5) * BLOCK;
+        var hk = (BLOCK - ROAD) / 2;
+        curbs.box(hk * 2 + kerbW * 2, kerbH, kerbW, ccx, kerbH / 2, ccz - hk - kerbW / 2);
+        curbs.box(hk * 2 + kerbW * 2, kerbH, kerbW, ccx, kerbH / 2, ccz + hk + kerbW / 2);
+        curbs.box(kerbW, kerbH, hk * 2, ccx - hk - kerbW / 2, kerbH / 2, ccz);
+        curbs.box(kerbW, kerbH, hk * 2, ccx + hk + kerbW / 2, kerbH / 2, ccz);
+      }
+    }
+    groups.add(new THREE.Mesh(curbs.build(), curbMat));
 
     // street props: lamps + traffic lights on every road line
     for (var li = 0; li <= GRID; li++) {
