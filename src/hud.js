@@ -138,13 +138,14 @@
 
     // blocks: everything is asphalt, so paint the sidewalk squares on top
     c.fillStyle = '#242c36';
-    var B = G.city.BLOCK, H2 = G.city.HALF, ROAD = G.city.ROAD;
+    var B = G.city.BLOCK, H2 = G.city.HALF;
+    function rw(k) { return G.city.roadW ? G.city.roadW(k) : G.city.ROAD; }
     var i0 = Math.max(-1, Math.floor((px - VIEW + H2) / B) - 1), i1 = Math.min(G.city.GRID, Math.ceil((px + VIEW + H2) / B) + 1);
     var j0 = Math.max(-1, Math.floor((pz - VIEW + H2) / B) - 1), j1 = Math.min(G.city.GRID, Math.ceil((pz + VIEW + H2) / B) + 1);
     for (var i = i0; i <= i1; i++) {
       for (var j = j0; j <= j1; j++) {
-        var x0 = -H2 + i * B + ROAD / 2, z0 = -H2 + j * B + ROAD / 2;
-        var x1 = -H2 + (i + 1) * B - ROAD / 2, z1 = -H2 + (j + 1) * B - ROAD / 2;
+        var x0 = -H2 + i * B + rw(i) / 2, z0 = -H2 + j * B + rw(j) / 2;
+        var x1 = -H2 + (i + 1) * B - rw(i + 1) / 2, z1 = -H2 + (j + 1) * B - rw(j + 1) / 2;
         c.fillRect(sx(x0), sy(z0), (x1 - x0) * scale, (z1 - z0) * scale);
       }
     }
@@ -157,6 +158,17 @@
     }
     c.setLineDash([]);
 
+    // robbery targets: gold, fading once cleaned out
+    if (G.heists && G.heists.targets) {
+      for (var hi = 0; hi < G.heists.targets.length; hi++) {
+        var tg = G.heists.targets[hi];
+        var tgx = sx(tg.x), tgz = sy(tg.z);
+        if (tgx < -20 || tgz < -20 || tgx > W + 20 || tgz > W + 20) continue;
+        c.fillStyle = tg.robbed ? 'rgba(140,120,60,.45)' : '#ffd447';
+        c.beginPath(); c.arc(tgx, tgz, 4.5, 0, 6.2832); c.fill();
+        c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 1.2; c.stroke();
+      }
+    }
     // pickups
     c.fillStyle = '#6cf07a';
     for (var pk = 0; pk < ents.pickups.length; pk++) {

@@ -328,7 +328,7 @@
     var nx = P.x + wx * speed * dt, nz = P.z + wz * speed * dt;
     var boxes = G.city.queryBoxes(nx - 2, nz - 2, nx + 2, nz + 2);
     U.resolveCircleAABB(nx, nz, 0.45, boxes, _res);
-    P.x = U.clamp(_res.x, -G.city.HALF - 10, G.city.HALF + 10);
+    P.x = U.clamp(_res.x, -G.city.HALF - 10, G.city.COAST_X ? G.city.COAST_X - 2 : G.city.HALF + 10);
     P.z = U.clamp(_res.z, -G.city.HALF - 10, G.city.HALF + 10);
 
     // jump / gravity
@@ -450,7 +450,7 @@
       }
     }
 
-    car.x = U.clamp(nx, -G.city.HALF - 12, G.city.HALF + 12);
+    car.x = U.clamp(nx, -G.city.HALF - 12, G.city.COAST_X ? G.city.COAST_X - 2.5 : G.city.HALF + 12);
     car.z = U.clamp(nz, -G.city.HALF - 12, G.city.HALF + 12);
     car.yaw = P.yaw;
     car.speed = vf;

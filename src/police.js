@@ -16,13 +16,13 @@
 
   W.init = function (sc, pl) { scene = sc; player = pl; };
 
-  W.crime = function (type, x, z) {
+  W.crime = function (type, x, z, heatAdd) {
     if (player.dead || !player) return;
-    var h = HEAT[type];
+    var h = heatAdd === undefined ? HEAT[type] : heatAdd;
     if (h === undefined) h = 0.5;
     W.heat = Math.min(5.999, W.heat + h);
     W.lastCrime = W.time;
-    if (type === 'cop' || type === 'cop-hit' || type === 'gunshot') W.agitated = Math.max(W.agitated, 9);
+    if (type === 'cop' || type === 'cop-hit' || type === 'gunshot' || type === 'heist') W.agitated = Math.max(W.agitated, 9);
     W.level = W.stars = levelOf(W.heat);
     G.hud.setStars(W.level);
   };

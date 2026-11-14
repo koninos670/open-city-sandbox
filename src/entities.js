@@ -6,7 +6,7 @@
     cars: [], peds: [], cops: [], pickups: [], humans: []
   };
   var scene, player;
-  var MAX_CARS = 26, MAX_PEDS = 46;
+  var MAX_CARS = 34, MAX_PEDS = 58;
   var TYPES = ['sedan', 'sedan', 'coupe', 'suv', 'van', 'taxi', 'sedan', 'suv'];
 
   E.init = function (sc, pl) {
@@ -44,10 +44,10 @@
     };
     // recover the exact lane centre so the car starts neatly in its lane
     if (onX) {
-      car.z = -G.city.HALF + car.ai.roadIdx * G.city.BLOCK + car.ai.dir * (G.city.ROAD / 4);
+      car.z = -G.city.HALF + car.ai.roadIdx * G.city.BLOCK + car.ai.dir * (G.city.roadW(car.ai.roadIdx) / 4);
       car.yaw = car.ai.dir > 0 ? Math.PI / 2 : -Math.PI / 2;
     } else {
-      car.x = -G.city.HALF + car.ai.roadIdx * G.city.BLOCK - car.ai.dir * (G.city.ROAD / 4);
+      car.x = -G.city.HALF + car.ai.roadIdx * G.city.BLOCK - car.ai.dir * (G.city.roadW(car.ai.roadIdx) / 4);
       car.yaw = car.ai.dir > 0 ? 0 : Math.PI;
     }
     car.maxSpeed = U.rand(9, 17);
@@ -189,7 +189,7 @@
     var nx = p.x + (dx / len) * spd * dt, nz = p.z + (dz / len) * spd * dt;
     var boxes = G.city.queryBoxes(nx - 2, nz - 2, nx + 2, nz + 2);
     U.resolveCircleAABB(nx, nz, p.radius, boxes, _c);
-    p.x = U.clamp(_c.x, -G.city.HALF - 8, G.city.HALF + 8);
+    p.x = U.clamp(_c.x, -G.city.HALF - 8, G.city.COAST_X ? G.city.COAST_X - 1.5 : G.city.HALF + 8);
     p.z = U.clamp(_c.z, -G.city.HALF - 8, G.city.HALF + 8);
 
     var want = Math.atan2(dx, dz);
@@ -240,6 +240,7 @@
     var along = (a.axis === 'x') ? car.x : car.z;
     along += a.dir * car.speed * dt;
     var lim = G.city.HALF + 5;
+    if (a.axis === 'x' && G.city.COAST_X) lim = G.city.COAST_X - 3;   // cross-town roads stop at the shore
     if (along > lim) along = -lim + 1; else if (along < -lim) along = lim - 1;
     if (a.axis === 'x') car.x = along; else car.z = along;
 
@@ -256,7 +257,8 @@
       if (a.axis === 'x') car.z += nudge * dt * 3; else car.x += nudge * dt * 3;
       var centre = -G.city.HALF + a.roadIdx * G.city.BLOCK;
       var off = (a.axis === 'x') ? car.z - centre : car.x - centre;
-      off = U.clamp(off, -G.city.ROAD / 2 + 1.1, G.city.ROAD / 2 - 1.1);
+      var laneHalf = G.city.roadW(a.roadIdx) / 2 - 1.1;
+      off = U.clamp(off, -laneHalf, laneHalf);
       if (a.axis === 'x') car.z = centre + off; else car.x = centre + off;
     }
 
@@ -267,7 +269,7 @@
   // ------------------------------------------------------------------ pickups
   var PICKUP_KINDS = ['health', 'armor', 'ammo', 'cash', 'health', 'ammo'];
   function spawnPickups() {
-    for (var i = 0; i < 24; i++) {
+    for (var i = 0; i < 34; i++) {
       var kind = PICKUP_KINDS[i % PICKUP_KINDS.length];
       var p = G.city.randomSidewalkPoint(null, 0);
       addPickup(kind, p.x, p.z);
@@ -331,7 +333,7 @@
     for (var c2 = 0; c2 < E.cars.length; c2++) {
       var c = E.cars[c2];
       if (!c.alive || c.driven || c.driver === 'police') continue;
-      if (U.dist2(c.x, c.z, player.x, player.z) > 260) placeCarOnRoad(c, null);
+      if (U.dist2(c.x, c.z, player.x, player.z) > 300) placeCarOnRoad(c, null);
       var night = G.city.night;
       for (var hm = 0; hm < c.model.headMats.length; hm++) c.model.headMats[hm].emissiveIntensity = 0.2 + night * 1.5;
       for (var hg = 0; hg < c.model.headGlows.length; hg++) c.model.headGlows[hg].material.opacity = night * 0.8;
@@ -340,7 +342,7 @@
     }
     for (var p2 = 0; p2 < E.peds.length; p2++) {
       var pp = E.peds[p2];
-      if (pp.alive && U.dist2(pp.x, pp.z, player.x, player.z) > 240) {
+      if (pp.alive && U.dist2(pp.x, pp.z, player.x, player.z) > 270) {
         var sp = G.city.randomSidewalkPoint(player, 60);
         pp.x = sp.x; pp.z = sp.z; pp.target = G.city.randomSidewalkPoint(pp, 14);
         pp.obj.position.set(pp.x, 0, pp.z);

@@ -3,7 +3,7 @@ window.G = window.G || {};
 
 /* Bumped whenever the game changes, so a stale cached page is easy to spot: the
    badge in the corner of the HUD shows this number. */
-G.BUILD = 6;
+G.BUILD = 7;
 
 (function (G) {
   'use strict';
@@ -196,6 +196,56 @@ G.BUILD = 6;
     return t;
   };
 
+  U.sandTexture = function () {
+    var c = canvas(128, 128), x = c.getContext('2d');
+    x.fillStyle = '#d9c79a'; x.fillRect(0, 0, 128, 128);
+    for (var i = 0; i < 2600; i++) {
+      x.fillStyle = 'rgba(' + (200 + Math.random() * 45 | 0) + ',' + (185 + Math.random() * 40 | 0) + ',' + (140 + Math.random() * 45 | 0) + ',.55)';
+      x.fillRect(Math.random() * 128, Math.random() * 128, 2, 2);
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  };
+
+  // pale stone blocks for bank facades and kerb walls
+  var stoneCache = {};
+  U.stoneTexture = function () {
+    if (stoneCache.t) return stoneCache.t;
+    var c = canvas(128, 128), x = c.getContext('2d');
+    x.fillStyle = '#cfc6b4'; x.fillRect(0, 0, 128, 128);
+    for (var r = 0; r < 8; r++) {
+      for (var q = 0; q < 4; q++) {
+        var ox = (r % 2) * 16;
+        x.fillStyle = 'rgba(' + (185 + Math.random() * 25 | 0) + ',' + (176 + Math.random() * 25 | 0) + ',' + (155 + Math.random() * 25 | 0) + ',.85)';
+        x.fillRect(ox + q * 32, r * 16, 30, 14);
+      }
+    }
+    x.strokeStyle = 'rgba(120,113,100,.5)'; x.lineWidth = 1;
+    for (var i = 0; i <= 8; i++) { x.beginPath(); x.moveTo(0, i * 16); x.lineTo(128, i * 16); x.stroke(); }
+    stoneCache.t = new THREE.CanvasTexture(c);
+    stoneCache.t.wrapS = stoneCache.t.wrapT = THREE.RepeatWrapping;
+    return stoneCache.t;
+  };
+
+  // shop / bank signboard: a coloured plate with block letters
+  var signCache = {};
+  U.signTexture = function (text, bg, fg) {
+    var key = text + '|' + bg + '|' + fg;
+    if (signCache[key]) return signCache[key];
+    var c = canvas(256, 64), x = c.getContext('2d');
+    x.fillStyle = bg; x.fillRect(0, 0, 256, 64);
+    x.strokeStyle = fg; x.lineWidth = 3; x.strokeRect(4, 4, 248, 56);
+    x.fillStyle = fg; x.textAlign = 'center'; x.textBaseline = 'middle';
+    var size = 34;
+    do { x.font = 'bold ' + size + 'px sans-serif'; size -= 2; }
+    while (size > 12 && x.measureText(text).width > 224);
+    x.fillText(text, 128, 34);
+    signCache[key] = new THREE.CanvasTexture(c);
+    return signCache[key];
+  };
+
+
   // radial glow sprite used for muzzle flashes, tracers and fires
   U.glowTexture = function (color) {
     var s = 64, c = canvas(s, s), x = c.getContext('2d');
@@ -299,6 +349,30 @@ G.BUILD = 6;
         var m = new THREE.Matrix4().compose(_v0.set(x || 0, y || 0, z || 0), _q2, _v1.set(w, d, 1));
         api.raw(mergeGeo.__unitPlane || (mergeGeo.__unitPlane = new THREE.PlaneGeometry(1, 1)), m,
           tile ? w * tile : undefined, tile ? d * tile : undefined);
+      },
+      // Box with facade UVs: every face tiles by its own size / (su,sv) in
+      // metres. mask is six flags (+X -X +Y -Y +Z -Z); roofs pass the +Y face only.
+      uvBox: function (w, h, d, x, y, z, su, sv, mask) {
+        var hw = w / 2, hh = h / 2, hd = d / 2;
+        var faces = [
+          { n: [1, 0, 0], q: [[hw, -hh, hd], [hw, -hh, -hd], [hw, hh, -hd], [hw, hh, hd]], u: d, v: h },
+          { n: [-1, 0, 0], q: [[-hw, -hh, -hd], [-hw, -hh, hd], [-hw, hh, hd], [-hw, hh, -hd]], u: d, v: h },
+          { n: [0, 1, 0], q: [[-hw, hh, hd], [hw, hh, hd], [hw, hh, -hd], [-hw, hh, -hd]], u: w, v: d },
+          { n: [0, -1, 0], q: [[-hw, -hh, -hd], [hw, -hh, -hd], [hw, -hh, hd], [-hw, -hh, hd]], u: w, v: d },
+          { n: [0, 0, 1], q: [[-hw, -hh, hd], [hw, -hh, hd], [hw, hh, hd], [-hw, hh, hd]], u: w, v: h },
+          { n: [0, 0, -1], q: [[hw, -hh, -hd], [-hw, -hh, -hd], [-hw, hh, -hd], [hw, hh, -hd]], u: w, v: h }
+        ];
+        var uq = [[0, 0], [1, 0], [1, 1], [0, 1]], idx = [0, 1, 2, 0, 2, 3];
+        for (var f = 0; f < 6; f++) {
+          if (mask && !mask[f]) continue;
+          var face = faces[f], us = face.u / su, vs = face.v / sv;
+          for (var k = 0; k < 6; k++) {
+            var c = face.q[idx[k]], t = uq[idx[k]];
+            pos.push(c[0] + (x || 0), c[1] + (y || 0), c[2] + (z || 0));
+            nor.push(face.n[0], face.n[1], face.n[2]);
+            uv.push(t[0] * us, t[1] * vs);
+          }
+        }
       },
       count: function () { return pos.length / 9; },
       build: function () {

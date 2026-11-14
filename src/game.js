@@ -36,6 +36,7 @@
     G.player.init(scene, camera);
     G.entities.init(scene, G.player);
     G.wanted.init(scene, G.player);
+    G.heists.init(G.player);
     G.city.setTime(sunTime, scene);
 
     var badge = document.getElementById('build');
@@ -50,6 +51,7 @@
       frame: function (dt) { update(dt); renderer.render(scene, camera); },
       step: function (dt) { update(dt); },
       press: function (code, down) { input.keys[code] = !!down; },
+      rob: function () { return G.heists.interact(); },
       setTime: function (h) { sunTime = h; G.city.setTime(sunTime, scene); },
       heal: function () { G.player.hp = 100; },
       scene: scene, camera: camera, renderer: renderer
@@ -121,6 +123,7 @@
       if (k === 'F1' || e.key === '?') { e.preventDefault(); toggleControls(); return; }
       if (!running) return;
       if (k === 'KeyE') toggleCar();
+      else if (k === 'KeyF') G.heists.interact();
       else if (k === 'KeyC') G.player.camMode = (G.player.camMode + 1) % 3;
       else if (k === 'KeyH') G.player.camMode = G.player.camMode === 1 ? 0 : 1;
       else if (k === 'Tab') G.wanted.clear(true);
@@ -179,7 +182,9 @@
       pickups: G.entities.pickups.filter(function (k) { return !k.taken; }).length,
       carSpeed: p.car ? +p.car.speed.toFixed(2) : null,
       fps: fps, drawCalls: renderer.info.render.calls, tris: renderer.info.render.triangles,
-      night: +G.city.night.toFixed(2), helis: G.wanted.helis.length
+      night: +G.city.night.toFixed(2), helis: G.wanted.helis.length,
+      heists: G.heists.targets.length, heistState: G.heists.state, heistsDone: G.heists.done,
+      heistNear: G.heists.near ? G.heists.near.name : null
     };
   }
 
@@ -195,6 +200,8 @@
     var p = G.player;
     if (p.dead) return '';
     var hint = document.pointerLockElement === renderer.domElement ? '' : 'Click to look around &middot; ';
+    var job = G.heists.prompt(p);
+    if (job) return job;
     if (p.onFoot) {
       var car = G.entities.carNear(p.x, p.z, 3.6);
       if (car) return hint + 'Press E to take the ' + car.model.type.toUpperCase();
@@ -216,8 +223,10 @@
     G.player.update(dt, input);
     G.entities.update(dt, sunTime);
     G.wanted.update(dt, sunTime);
+    G.heists.update(dt);
 
     sunTime = (sunTime + dt * 0.05) % 24;
+    G.city.shadowAt(G.player.x, G.player.z);
     G.city.setTime(sunTime, scene);
     var day = 1 - G.city.night;
     scene.fog.color.copy(NIGHT_FOG).lerp(DAY_FOG, day);
