@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.log
 .agent_tmp/
+open-city-sandbox.zip
