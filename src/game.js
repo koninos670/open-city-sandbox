@@ -32,11 +32,19 @@
     G.wanted.init(scene, G.player);
     G.city.setTime(sunTime, scene);
 
+    // A browser can hold an older copy of index.html in its cache; that copy contains the
+    // old PAUSED overlay, which the game no longer uses. Remove it so nobody is left
+    // staring at a screen whose "click to resume" does nothing.
+    var stalePaused = document.getElementById('paused');
+    if (stalePaused && stalePaused.parentNode) stalePaused.parentNode.removeChild(stalePaused);
+    var badge = document.getElementById('build');
+    if (badge) badge.textContent = 'v' + G.BUILD;
+
     bindInput(canvas);
     window.addEventListener('resize', resize);
     clock = new THREE.Clock();
     G.debug = {
-      state: debugState, update: update, input: input,
+      state: debugState, update: update, input: input, build: G.BUILD,
       startGame: function () { startGameRef(); },
       frame: function (dt) { update(dt); renderer.render(scene, camera); },
       step: function (dt) { update(dt); },
@@ -61,6 +69,7 @@
       el('menu').hidden = true;
       el('hud').hidden = false;
       running = true;
+      input.mx = 0; input.my = 0; input.fire = false; input.aim = false;
       G.audio.init();
       G.audio.resume();
       G.audio.startEngine();
@@ -97,8 +106,10 @@
       if (e.button === 2) input.aim = false;
     });
     canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+    // Look-around works with or without pointer lock: embedded views and some browsers
+    // refuse the lock, and the game has to stay playable there.
     document.addEventListener('mousemove', function (e) {
-      if (document.pointerLockElement !== canvas) return;
+      if (!running) return;
       input.mx += e.movementX || 0;
       input.my += e.movementY || 0;
     });
@@ -121,7 +132,7 @@
     var p = G.player;
     var a = p.ammo && p.ammo[p.weapon];
     return {
-      errors: G.errors.slice(0, 6), running: running, locked: document.pointerLockElement === renderer.domElement, sunTime: +sunTime.toFixed(2),
+      build: G.BUILD, errors: G.errors.slice(0, 6), running: running, locked: document.pointerLockElement === renderer.domElement, sunTime: +sunTime.toFixed(2),
       hp: p.hp, armor: p.armor, cash: p.cash, onFoot: p.onFoot, dead: p.dead,
       x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +p.yaw.toFixed(2),
       vy: +p.vy.toFixed(2), camMode: p.camMode, weapon: p.weapon, mag: a ? a.mag : null,
