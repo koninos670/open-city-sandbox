@@ -7,7 +7,13 @@ JavaScript and a locally vendored copy of three.js (no build step, no internet n
 > This is an original fan-style prototype inspired by open-world crime games. It shares
 > no code, art or other assets with any commercial title.
 
-## Play it
+## Play it online
+
+**https://koninos670.github.io/open-city-sandbox/** — served over HTTPS by GitHub Pages
+from this repository (`main` branch, root folder). No install, no server, works on desktop
+and on mobile browsers that support WebGL.
+
+## Play it offline
 
 No install, no build step, no server:
 
