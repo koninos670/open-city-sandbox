@@ -3,7 +3,8 @@
   'use strict';
   var U = G.util;
   var renderer, scene, camera, clock, sunTime = 12.6, running = false;
-  var input = { keys: {}, mx: 0, my: 0, fire: false, aim: false };
+  var input = { keys: {}, mx: 0, my: 0, fire: false, aim: false, ui: false };
+  var uiInput = { keys: {}, mx: 0, my: 0, fire: false, aim: false };
   var fps = 0, fpsAcc = 0, fpsN = 0, startGameRef = null, toggleControlsRef = null;
 
   function showControls(on) {
@@ -37,6 +38,9 @@
     G.entities.init(scene, G.player);
     G.wanted.init(scene, G.player);
     G.heists.init(G.player);
+    if (G.home) G.home.init(G.player);
+    if (G.phone) G.phone.init();
+    if (G.touch) G.touch.init();
     G.city.setTime(sunTime, scene);
 
     var badge = document.getElementById('build');
@@ -45,14 +49,28 @@
     bindInput(canvas);
     window.addEventListener('resize', resize);
     clock = new THREE.Clock();
-    G.debug = {
+    // the world clock, shared by the phone, the bed and the debug keys
+  G.setTime = function (h) { sunTime = ((h % 24) + 24) % 24; G.city.setTime(sunTime, scene); };
+
+  // installable app: a service worker is what lets a phone (or Chrome on a PC)
+  // offer "Install" and lets the game open with no network at all
+  if ('serviceWorker' in navigator &&
+      (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+
+  G.debug = {
       state: debugState, update: update, input: input, build: G.BUILD, controls: function () { toggleControlsRef(); },
       startGame: function () { startGameRef(); },
       frame: function (dt) { update(dt); renderer.render(scene, camera); },
       step: function (dt) { update(dt); },
-      press: function (code, down) { input.keys[code] = !!down; },
+      press: function (code, down) { if (down) keyDown(code); else keyUp(code); },
       rob: function () { return G.heists.interact(); },
-      setTime: function (h) { sunTime = h; G.city.setTime(sunTime, scene); },
+      setTime: function (h) { G.setTime(h); },
+      phone: function () { return G.phone ? G.phone.state() : null; },
+      useProp: function () { return G.home ? G.home.use() : false; },
       heal: function () { G.player.hp = 100; },
       scene: scene, camera: camera, renderer: renderer
     };
@@ -115,13 +133,20 @@
     // list is also forced off inline: nothing controls-shaped may sit over the game.
     showControls(false);
 
-    document.addEventListener('keydown', function (e) {
-      var k = e.code;
-      if (k === 'Tab' || k === 'Space' || k.indexOf('Arrow') === 0) e.preventDefault();
+    // One place turns a key into a game action, so the keyboard, the debug helpers and
+    // the on-screen touch buttons all behave exactly the same way.
+    function keyDown(k) {
       if (input.keys[k]) return;
       input.keys[k] = true;
-      if (k === 'F1' || e.key === '?') { e.preventDefault(); toggleControls(); return; }
+      if (k === 'F1') { toggleControls(); return; }
       if (!running) return;
+      // the phone owns the keyboard while its screen is up
+      if (G.phone && G.phone.isOpen()) {
+        if (k === 'KeyP' || k === 'Escape') { G.phone.toggle(false); lockPointer(canvas); }
+        return;
+      }
+      if (k === 'KeyP') { if (G.phone) G.phone.toggle(); return; }
+      if (k === 'KeyG') { if (G.home) G.home.use(); return; }
       if (k === 'KeyE') toggleCar();
       else if (k === 'KeyF') G.heists.interact();
       else if (k === 'KeyC') G.player.camMode = (G.player.camMode + 1) % 3;
@@ -129,12 +154,23 @@
       else if (k === 'Tab') G.wanted.clear(true);
       else if (k === 'KeyM') G.audio.setMute(!G.audio.muted);
       else if (k >= 'Digit1' && k <= 'Digit4') G.player.selectWeapon(+k.slice(5));
+    }
+    function keyUp(k) { input.keys[k] = false; }
+    G.keys = { down: keyDown, up: keyUp };
+
+    document.addEventListener('keydown', function (e) {
+      var k = e.code;
+      if (k === 'Tab' || k === 'Space' || k.indexOf('Arrow') === 0 ||
+          k === 'F1' || k === 'KeyP' || k === 'Escape' || e.key === '?') e.preventDefault();
+      if (k === 'F1' || e.key === '?') { toggleControls(); return; }
+      keyDown(k);
     });
-    document.addEventListener('keyup', function (e) { input.keys[e.code] = false; });
+    document.addEventListener('keyup', function (e) { keyUp(e.code); });
     window.addEventListener('blur', function () { input.keys = {}; });
 
     canvas.addEventListener('mousedown', function (e) {
       if (!running) return;
+      if (G.phone && G.phone.isOpen()) return;
       if (e.button === 0) input.fire = true;
       if (e.button === 2) input.aim = true;
       if (document.pointerLockElement !== canvas) lockPointer(canvas);
@@ -184,7 +220,10 @@
       fps: fps, drawCalls: renderer.info.render.calls, tris: renderer.info.render.triangles,
       night: +G.city.night.toFixed(2), helis: G.wanted.helis.length,
       heists: G.heists.targets.length, heistState: G.heists.state, heistsDone: G.heists.done,
-      heistNear: G.heists.near ? G.heists.near.name : null
+      heistNear: G.heists.near ? G.heists.near.name : null,
+      phoneOpen: !!(G.phone && G.phone.isOpen()), phoneBatt: G.phone ? +G.phone.state().batt.toFixed(1) : null,
+      waypoint: G.waypoint ? { x: +G.waypoint.x.toFixed(1), z: +G.waypoint.z.toFixed(1), label: G.waypoint.label } : null,
+      propNear: (function () { var q = G.home ? G.home.nearest() : null; return q ? q.kind + '/' + (q.name || '') : null; })()
     };
   }
 
@@ -199,9 +238,11 @@
   function promptText() {
     var p = G.player;
     if (p.dead) return '';
-    var hint = document.pointerLockElement === renderer.domElement ? '' : 'Click to look around &middot; ';
+    var hint = (document.pointerLockElement === renderer.domElement || G.touchMode) ? '' : 'Click to look around &middot; ';
     var job = G.heists.prompt(p);
     if (job) return job;
+    var prop = G.home ? G.home.prompt() : '';
+    if (prop) return prop;
     if (p.onFoot) {
       var car = G.entities.carNear(p.x, p.z, 3.6);
       if (car) return hint + 'Press E to take the ' + car.model.type.toUpperCase();
@@ -220,7 +261,8 @@
   }
 
   function update(dt) {
-    G.player.update(dt, input);
+    var busy = !!(G.phone && G.phone.isOpen());
+    G.player.update(dt, busy ? uiInput : input);
     G.entities.update(dt, sunTime);
     G.wanted.update(dt, sunTime);
     G.heists.update(dt);
@@ -240,6 +282,9 @@
     G.hud.tick(dt);
     G.hud.setClock(sunTime);
     G.hud.drawMinimap(p, G.entities, G.wanted.level);
+    if (G.phone) G.phone.update(dt, sunTime);
+    if (G.touch) G.touch.update(dt);
+    if (G.home) G.home.update(dt);
     G.hud.prompt(promptText());
   }
 

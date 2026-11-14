@@ -169,6 +169,27 @@
         c.strokeStyle = 'rgba(0,0,0,.75)'; c.lineWidth = 1.2; c.stroke();
       }
     }
+    // your house and the active waypoint: drawn even when they are off the map,
+    // slid to the rim and turned into a pointer
+    function pin(x, z, colour, kind) {
+      var dx = (x - px) * scale, dz = (z - pz) * scale;
+      var d = Math.hypot(dx, dz), lim = R - 13, edge = d > lim;
+      if (edge && d > 0) { dx *= lim / d; dz *= lim / d; }
+      c.save();
+      c.translate(R + dx, R + dz);
+      if (edge) c.rotate(Math.atan2(dz, dx) + Math.PI / 2);
+      c.fillStyle = colour; c.strokeStyle = 'rgba(0,0,0,.8)'; c.lineWidth = 1.4;
+      if (kind === 'wp') {
+        c.beginPath(); c.moveTo(0, -9); c.lineTo(9, 0); c.lineTo(0, 9); c.lineTo(-9, 0); c.closePath();
+        c.fill(); c.stroke();
+      } else {
+        c.fillRect(-5, -5, 10, 10); c.strokeRect(-5, -5, 10, 10);
+      }
+      c.restore();
+    }
+    if (G.city.home) pin(G.city.home.x, G.city.home.z, '#63e08a', 'home');
+    if (G.waypoint) pin(G.waypoint.x, G.waypoint.z, '#ffd447', 'wp');
+
     // pickups
     c.fillStyle = '#6cf07a';
     for (var pk = 0; pk < ents.pickups.length; pk++) {

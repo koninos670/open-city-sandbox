@@ -3,7 +3,7 @@ window.G = window.G || {};
 
 /* Bumped whenever the game changes, so a stale cached page is easy to spot: the
    badge in the corner of the HUD shows this number. */
-G.BUILD = 7;
+G.BUILD = 8;
 
 (function (G) {
   'use strict';
@@ -245,6 +245,134 @@ G.BUILD = 7;
     return signCache[key];
   };
 
+
+  // ---- build 8: sea, awnings, timber, interior floors, glowing screens ----
+
+  // open water: deep blue with wavy lighter bands and sparkle, tiled over the sea plane
+  U.waterTexture = function () {
+    var c = canvas(256, 256), x = c.getContext('2d');
+    x.fillStyle = '#17527d'; x.fillRect(0, 0, 256, 256);
+    for (var i = 0; i < 90; i++) {
+      var y = Math.random() * 256, amp = 2 + Math.random() * 5;
+      x.strokeStyle = 'rgba(' + (70 + Math.random() * 70 | 0) + ',' + (140 + Math.random() * 70 | 0) + ',' + (190 + Math.random() * 60 | 0) + ',' + (0.10 + Math.random() * 0.22).toFixed(2) + ')';
+      x.lineWidth = 1 + Math.random() * 2.5;
+      x.beginPath();
+      for (var px = 0; px <= 256; px += 8) {
+        var py = y + Math.sin((px / 256) * 6.2832 * (1 + Math.random() * 0.02) + i) * amp;
+        if (px === 0) x.moveTo(px, py); else x.lineTo(px, py);
+      }
+      x.stroke();
+    }
+    for (var s = 0; s < 900; s++) {
+      x.fillStyle = 'rgba(220,240,255,' + (0.10 + Math.random() * 0.35).toFixed(2) + ')';
+      x.fillRect(Math.random() * 256, Math.random() * 256, 1 + (Math.random() < 0.15 ? 1 : 0), 1);
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
+    return t;
+  };
+
+  // shore foam: transparent sheet with white speckle so the shoreline reads as surf
+  U.foamTexture = function () {
+    var c = canvas(128, 128), x = c.getContext('2d');
+    x.clearRect(0, 0, 128, 128);
+    for (var i = 0; i < 1600; i++) {
+      x.fillStyle = 'rgba(255,255,255,' + (0.25 + Math.random() * 0.6).toFixed(2) + ')';
+      var s = Math.random() < 0.2 ? 3 : 2;
+      x.fillRect(Math.random() * 128, Math.random() * 128, s, s);
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  };
+
+  // striped awning canvas: one cached texture per colour pair
+  var awningCache = {};
+  U.awningTexture = function (a, b) {
+    var key = a + '_' + b;
+    if (awningCache[key]) return awningCache[key];
+    var c = canvas(128, 128), x = c.getContext('2d');
+    for (var i = 0; i < 8; i++) {
+      x.fillStyle = i % 2 ? a : b;
+      x.fillRect(i * 16, 0, 16, 128);
+    }
+    x.fillStyle = 'rgba(0,0,0,.10)';
+    for (var k = 0; k < 128; k += 4) x.fillRect(0, k, 128, 1);
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  };
+
+  // weathered decking / pier planks
+  var woodCache = {};
+  U.woodTexture = function (dark) {
+    var key = dark ? 'd' : 'l';
+    if (woodCache[key]) return woodCache[key];
+    var c = canvas(128, 128), x = c.getContext('2d');
+    x.fillStyle = dark ? '#5a4531' : '#8a6b45';
+    x.fillRect(0, 0, 128, 128);
+    for (var p = 0; p < 8; p++) {
+      x.fillStyle = 'rgba(' + (70 + Math.random() * 60 | 0) + ',' + (52 + Math.random() * 45 | 0) + ',' + (32 + Math.random() * 30 | 0) + ',.55)';
+      x.fillRect(0, p * 16, 128, 15);
+      x.fillStyle = 'rgba(35,25,16,.75)';
+      x.fillRect(0, p * 16 + 15, 128, 1.5);
+      for (var g = 0; g < 10; g++) {
+        x.fillStyle = 'rgba(40,28,18,' + (0.10 + Math.random() * 0.18).toFixed(2) + ')';
+        x.fillRect(0, p * 16 + 2 + Math.random() * 11, 128, 1);
+      }
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    return t;
+  };
+
+  // tiled interior floor (store tiles, bank marble, home boards)
+  var floorCache = {};
+  U.tileTexture = function (base, joint, cells) {
+    var key = base + '_' + joint + '_' + (cells || 8);
+    if (floorCache[key]) return floorCache[key];
+    var n = cells || 8, s = 128, c = canvas(s, s), x = c.getContext('2d');
+    var step = s / n;
+    for (var i = 0; i < n; i++) {
+      for (var j = 0; j < n; j++) {
+        x.fillStyle = base;
+        x.fillRect(i * step, j * step, step - 1.2, step - 1.2);
+        x.fillStyle = 'rgba(255,255,255,' + (Math.random() * 0.06).toFixed(3) + ')';
+        x.fillRect(i * step, j * step, step - 1.2, step - 1.2);
+      }
+    }
+    x.strokeStyle = joint; x.lineWidth = 1.4;
+    for (var k = 0; k <= n; k++) {
+      x.beginPath(); x.moveTo(k * step, 0); x.lineTo(k * step, s); x.stroke();
+      x.beginPath(); x.moveTo(0, k * step); x.lineTo(s, k * step); x.stroke();
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.anisotropy = 4;
+    floorCache[key] = t;
+    return t;
+  };
+
+  // glowing panel: till displays, ATM screens, the TV, shop window lights
+  var screenCache = {};
+  U.screenTexture = function (bg, glow, rows) {
+    var key = bg + '_' + glow + '_' + (rows || 5);
+    if (screenCache[key]) return screenCache[key];
+    var c = canvas(64, 64), x = c.getContext('2d');
+    x.fillStyle = bg; x.fillRect(0, 0, 64, 64);
+    var n = rows || 5;
+    for (var i = 0; i < n; i++) {
+      x.fillStyle = glow;
+      x.globalAlpha = 0.25 + Math.random() * 0.6;
+      x.fillRect(8, 10 + i * 9, 20 + Math.random() * 28, 4);
+    }
+    x.globalAlpha = 1;
+    x.fillStyle = glow; x.fillRect(6, 6, 52, 2);
+    var t = new THREE.CanvasTexture(c);
+    screenCache[key] = t;
+    return t;
+  };
 
   // radial glow sprite used for muzzle flashes, tracers and fires
   U.glowTexture = function (color) {

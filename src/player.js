@@ -328,7 +328,9 @@
     var nx = P.x + wx * speed * dt, nz = P.z + wz * speed * dt;
     var boxes = G.city.queryBoxes(nx - 2, nz - 2, nx + 2, nz + 2);
     U.resolveCircleAABB(nx, nz, 0.45, boxes, _res);
-    P.x = U.clamp(_res.x, -G.city.HALF - 10, G.city.COAST_X ? G.city.COAST_X - 2 : G.city.HALF + 10);
+    var limX = G.city.HALF + 10;
+    if (G.city.COAST_X) limX = G.city.walkX ? G.city.walkX(_res.x, _res.z) : G.city.COAST_X - 2;
+    P.x = U.clamp(_res.x, -G.city.HALF - 10, limX);
     P.z = U.clamp(_res.z, -G.city.HALF - 10, G.city.HALF + 10);
 
     // jump / gravity
