@@ -3,3 +3,4 @@ dist/
 *.log
 .agent_tmp/
 open-city-sandbox.zip
+preview-*.png
