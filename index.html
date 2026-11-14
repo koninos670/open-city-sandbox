@@ -78,6 +78,7 @@
   .btn:hover { filter:brightness(1.08); }
   #build { position:fixed; left:12px; bottom:10px; z-index:40; font-size:11px; letter-spacing:.14em;
     color:#7d8ea4; text-transform:uppercase; pointer-events:none; }
+  #controls { pointer-events:none; }
   .hint { margin-top:12px; font-size:12px; color:#8fa2b8; text-align:center; }
   .big { font-size:64px; font-weight:900; letter-spacing:8px; text-align:center; }
   #err { position:fixed; left:0; right:0; bottom:0; z-index:99; max-height:44%; overflow:auto; display:none;
@@ -85,10 +86,10 @@
 </style>
 </head>
 <body>
-<div id="build">v3</div>
+<div id="build">v4</div>
 <canvas id="game"></canvas>
 
-<div id="hud" hidden>
+<div id="hud">
   <div id="crosshair" class="panel">
     <div class="ch-v" style="top:0"></div><div class="ch-v" style="bottom:0"></div>
     <div class="ch-h" style="left:0"></div><div class="ch-h" style="right:0"></div>
@@ -116,10 +117,10 @@
   <div id="toast" class="panel"></div>
 </div>
 
-<div id="menu" class="overlay">
+<div id="controls" class="overlay" hidden>
   <div class="card">
-    <h1>OPEN CITY SANDBOX</h1>
-    <p>An open-world crime prototype &mdash; 3D city, drivable cars, pedestrians, guns and a 1&ndash;5 star police wanted system.</p>
+    <h1>CONTROLS</h1>
+    <p>The game runs behind this list &mdash; press <kbd>F1</kbd> or <kbd>?</kbd> to hide it again.</p>
     <div class="keys">
       <div><kbd>W A S D</kbd><em>Move / Drive</em></div>
       <div><kbd>Mouse</kbd><em>Look</em></div>
@@ -137,23 +138,22 @@
       <div><kbd>Tab</kbd><em>Reset wanted level (debug)</em></div>
       <div><kbd>Esc</kbd><em>Release mouse</em></div>
     </div>
-    <button class="btn" id="startBtn">START</button>
     <div class="hint">Tip: firing a gun or hurting people raises your wanted level. Lose the cops to clear it.</div>
   </div>
 </div>
 
 <pre id="err"></pre>
 
-<script src="lib/three.min.js?v=3"></script>
-<script src="src/util.js?v=3"></script>
-<script src="src/models.js?v=3"></script>
-<script src="src/fx.js?v=3"></script>
-<script src="src/audio.js?v=3"></script>
-<script src="src/world.js?v=3"></script>
-<script src="src/entities.js?v=3"></script>
-<script src="src/player.js?v=3"></script>
-<script src="src/police.js?v=3"></script>
-<script src="src/hud.js?v=3"></script>
-<script src="src/game.js?v=3"></script>
+<script src="lib/three.min.js?v=4"></script>
+<script src="src/util.js?v=4"></script>
+<script src="src/models.js?v=4"></script>
+<script src="src/fx.js?v=4"></script>
+<script src="src/audio.js?v=4"></script>
+<script src="src/world.js?v=4"></script>
+<script src="src/entities.js?v=4"></script>
+<script src="src/player.js?v=4"></script>
+<script src="src/police.js?v=4"></script>
+<script src="src/hud.js?v=4"></script>
+<script src="src/game.js?v=4"></script>
 </body>
 </html>

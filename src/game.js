@@ -4,7 +4,7 @@
   var U = G.util;
   var renderer, scene, camera, clock, sunTime = 12.6, running = false;
   var input = { keys: {}, mx: 0, my: 0, fire: false, aim: false };
-  var fps = 0, fpsAcc = 0, fpsN = 0, startGameRef = null;
+  var fps = 0, fpsAcc = 0, fpsN = 0, startGameRef = null, toggleControlsRef = null;
   G.input = input;
 
   var DAY_FOG = new THREE.Color(0xb9cfe6), NIGHT_FOG = new THREE.Color(0x0b1220);
@@ -25,18 +25,12 @@
 
     G.city.build(scene);
     G.fx.init(scene);
-    G.audio.init();
     G.hud.init();
     G.player.init(scene, camera);
     G.entities.init(scene, G.player);
     G.wanted.init(scene, G.player);
     G.city.setTime(sunTime, scene);
 
-    // A browser can hold an older copy of index.html in its cache; that copy contains the
-    // old PAUSED overlay, which the game no longer uses. Remove it so nobody is left
-    // staring at a screen whose "click to resume" does nothing.
-    var stalePaused = document.getElementById('paused');
-    if (stalePaused && stalePaused.parentNode) stalePaused.parentNode.removeChild(stalePaused);
     var badge = document.getElementById('build');
     if (badge) badge.textContent = 'v' + G.BUILD;
 
@@ -44,7 +38,7 @@
     window.addEventListener('resize', resize);
     clock = new THREE.Clock();
     G.debug = {
-      state: debugState, update: update, input: input, build: G.BUILD,
+      state: debugState, update: update, input: input, build: G.BUILD, controls: function () { toggleControlsRef(); },
       startGame: function () { startGameRef(); },
       frame: function (dt) { update(dt); renderer.render(scene, camera); },
       step: function (dt) { update(dt); },
@@ -53,6 +47,7 @@
       heal: function () { G.player.hp = 100; },
       scene: scene, camera: camera, renderer: renderer
     };
+    startGameRef();          // startGame lives in bindInput's scope
     requestAnimationFrame(loop);
   }
 
@@ -65,25 +60,53 @@
   function bindInput(canvas) {
     var el = function (id) { return document.getElementById(id); };
 
+    // There is no start screen: the world is live from the first frame, and the audio
+    // context is created on the first input (browsers only allow that after a gesture).
+    var audioArmed = false;
+    function armAudio() {
+      if (audioArmed) return;
+      audioArmed = true;
+      function arm() {
+        G.audio.init();
+        G.audio.resume();
+        document.removeEventListener('pointerdown', arm);
+        document.removeEventListener('keydown', arm);
+        document.removeEventListener('touchstart', arm);
+      }
+      document.addEventListener('pointerdown', arm);
+      document.addEventListener('keydown', arm);
+      document.addEventListener('touchstart', arm);
+    }
+
     function startGame() {
-      el('menu').hidden = true;
-      el('hud').hidden = false;
+      var hud = el('hud');
+      if (hud) hud.hidden = false;
+      // A cached older page can still carry the start box or the old PAUSED overlay;
+      // the game never waits for them, so drop them instead of showing dead screens.
+      ['menu', 'paused'].forEach(function (id) {
+        var stale = el(id);
+        if (stale && stale.parentNode) stale.parentNode.removeChild(stale);
+      });
       running = true;
       input.mx = 0; input.my = 0; input.fire = false; input.aim = false;
-      G.audio.init();
-      G.audio.resume();
-      G.audio.startEngine();
-      G.audio.startSiren();
+      armAudio();
+      G.hud.toast('CLICK TO LOOK \u00b7 F1 FOR CONTROLS');
       lockPointer(canvas);
     }
     startGameRef = startGame;
-    el('startBtn').addEventListener('click', startGame);
+
+    function toggleControls() {
+      var c = el('controls');
+      if (c) c.hidden = !c.hidden;
+    }
+    toggleControlsRef = toggleControls;
 
     document.addEventListener('keydown', function (e) {
       var k = e.code;
       if (k === 'Tab' || k === 'Space' || k.indexOf('Arrow') === 0) e.preventDefault();
       if (input.keys[k]) return;
       input.keys[k] = true;
+      if (k === 'F1' || e.key === '?') { e.preventDefault(); toggleControls(); return; }
       if (!running) return;
       if (k === 'KeyE') toggleCar();
       else if (k === 'KeyC') G.player.camMode = (G.player.camMode + 1) % 3;

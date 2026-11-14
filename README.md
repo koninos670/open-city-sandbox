@@ -19,7 +19,9 @@ No install, no build step, no server:
 
 1. Open the folder and double-click **index.html** (works from `file://` in Chrome, Edge,
    Firefox or Safari).
-2. Click **START** — the mouse is captured for looking around.
+2. That's it — there is no start screen: the city is live as soon as the page loads. Click
+   once to capture the mouse (the game plays fine without it too). Press `F1` or `?` for the
+   key list.
 
 Optional, if you prefer a local server:
 
@@ -44,6 +46,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 | `C` | Cycle camera (third person / first person / far) |
 | `H` | Toggle first person |
 | `M` | Mute audio |
+| `F1` or `?` | Show / hide the key list (the game keeps running behind it) |
 | `Esc` | Release the mouse (the game keeps running — click to capture it again) |
 
 ## What's in the prototype
@@ -64,5 +67,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 ## Notes
 
 - Audio is synthesized at runtime with the Web Audio API (no audio files).
+- No start screen and no pause: loading the page drops you straight into the city, and the
+  game keeps simulating while the mouse is free.
 - No save games yet; reloading the page starts a new session.
 - `lib/three.min.js` is three.js r149 (MIT), vendored so the game runs fully offline.

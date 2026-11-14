@@ -3,7 +3,7 @@ window.G = window.G || {};
 
 /* Bumped whenever the game changes, so a stale cached page is easy to spot: the
    badge in the corner of the HUD shows this number. */
-G.BUILD = 3;
+G.BUILD = 4;
 
 (function (G) {
   'use strict';
