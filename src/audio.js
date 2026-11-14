@@ -25,8 +25,11 @@
   A.resume = function () { if (ctx && ctx.state === 'suspended') ctx.resume(); };
   A.setVolume = function (v) { if (master) master.gain.value = v; };
 
-  function now() { return ctx.currentTime; }
+  function now() { return ctx ? ctx.currentTime : 0; }
   function noise(dur, gain, filterType, freq, q) {
+    // the audio context only exists after the first user gesture, so every sound has to
+    // tolerate being asked for before that
+    if (!A.ready || A.muted) return null;
     var src = ctx.createBufferSource(); src.buffer = noiseBuf; src.loop = true;
     var f = ctx.createBiquadFilter(); f.type = filterType || 'lowpass'; f.frequency.value = freq || 1200;
     if (q) f.Q.value = q;
@@ -103,6 +106,7 @@
   // ---- persistent loops: engine + police siren ----
   var eng = null, sire = null;
   A.startEngine = function () {
+    if (!A.ready) return;
     var o1 = ctx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 60;
     var o2 = ctx.createOscillator(); o2.type = 'square'; o2.frequency.value = 90;
     var f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 700;
@@ -120,6 +124,7 @@
     eng.g.gain.setTargetAtTime(A.muted ? 0 : load * (loud === undefined ? 0.06 : loud), now(), 0.08);
   };
   A.startSiren = function () {
+    if (!A.ready) return;
     var o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 700;
     var lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 3.6;
     var lg = ctx.createGain(); lg.gain.value = 220;
