@@ -1,8 +1,8 @@
-/* Bootstrap: renderer, input, main loop, day/night, pointer lock, pause. */
+/* Bootstrap: renderer, input, main loop, day/night, pointer lock. */
 (function (G) {
   'use strict';
   var U = G.util;
-  var renderer, scene, camera, clock, sunTime = 12.6, running = false, paused = true;
+  var renderer, scene, camera, clock, sunTime = 12.6, running = false;
   var input = { keys: {}, mx: 0, my: 0, fire: false, aim: false };
   var fps = 0, fpsAcc = 0, fpsN = 0, startGameRef = null;
   G.input = input;
@@ -81,7 +81,6 @@
       else if (k === 'KeyH') G.player.camMode = G.player.camMode === 1 ? 0 : 1;
       else if (k === 'Tab') G.wanted.clear(true);
       else if (k === 'KeyM') G.audio.setMute(!G.audio.muted);
-      else if (k === 'Escape') setPaused(true);
       else if (k >= 'Digit1' && k <= 'Digit4') G.player.selectWeapon(+k.slice(5));
     });
     document.addEventListener('keyup', function (e) { input.keys[e.code] = false; });
@@ -99,17 +98,14 @@
     });
     canvas.addEventListener('contextmenu', function (e) { e.preventDefault(); });
     document.addEventListener('mousemove', function (e) {
-      if (document.pointerLockElement !== canvas || paused) return;
+      if (document.pointerLockElement !== canvas) return;
       input.mx += e.movementX || 0;
       input.my += e.movementY || 0;
     });
-    document.addEventListener('pointerlockchange', function () {
-      var locked = document.pointerLockElement === canvas;
-      if (!locked && running) setPaused(true);
-      else if (locked) setPaused(false);
-    });
+    // Losing the mouse (Esc, alt-tab, another window) never stops the game: keyboard
+    // play continues and any click re-captures the pointer.
     document.addEventListener('click', function () {
-      if (paused && running) lockPointer(canvas);
+      if (running && document.pointerLockElement !== canvas) lockPointer(canvas);
     });
   }
 
@@ -125,7 +121,7 @@
     var p = G.player;
     var a = p.ammo && p.ammo[p.weapon];
     return {
-      errors: G.errors.slice(0, 6), running: running, paused: paused, sunTime: +sunTime.toFixed(2),
+      errors: G.errors.slice(0, 6), running: running, locked: document.pointerLockElement === renderer.domElement, sunTime: +sunTime.toFixed(2),
       hp: p.hp, armor: p.armor, cash: p.cash, onFoot: p.onFoot, dead: p.dead,
       x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +p.yaw.toFixed(2),
       vy: +p.vy.toFixed(2), camMode: p.camMode, weapon: p.weapon, mag: a ? a.mag : null,
@@ -141,12 +137,6 @@
     };
   }
 
-  function setPaused(v) {
-    paused = v;
-    document.getElementById('paused').hidden = !v;
-    if (v) input.fire = false;
-  }
-
   function toggleCar() {
     var p = G.player;
     if (!p.onFoot) { p.exitCar(false); return; }
@@ -158,12 +148,13 @@
   function promptText() {
     var p = G.player;
     if (p.dead) return '';
+    var hint = document.pointerLockElement === renderer.domElement ? '' : 'Click to look around &middot; ';
     if (p.onFoot) {
       var car = G.entities.carNear(p.x, p.z, 3.6);
-      if (car) return 'Press E to take the ' + car.model.type.toUpperCase();
-      return 'Press E near a car to steal it';
+      if (car) return hint + 'Press E to take the ' + car.model.type.toUpperCase();
+      return hint + 'Press E near a car to steal it';
     }
-    return 'E exit &middot; Space handbrake &middot; Shift boost';
+    return hint + 'E exit &middot; Space handbrake &middot; Shift boost';
   }
 
   function loop() {
@@ -171,8 +162,7 @@
     var dt = Math.min(0.05, clock.getDelta());
     fpsAcc += dt; fpsN++;
     if (fpsAcc > 0.5) { fps = Math.round(fpsN / fpsAcc); fpsAcc = 0; fpsN = 0; }
-    if (running && !paused) update(dt);
-    else if (running) G.hud.tick(dt);
+    if (running) update(dt);
     renderer.render(scene, camera);
   }
 

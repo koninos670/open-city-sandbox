@@ -88,7 +88,7 @@
   };
 
   H.prompt = function (text) {
-    if (text) { el.objective.textContent = text; blink = 0.4; }
+    if (text) { el.objective.innerHTML = text; blink = 0.4; }   // prompts carry &middot; separators
     else el.objective.textContent = '';
   };
 

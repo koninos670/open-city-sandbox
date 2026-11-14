@@ -44,7 +44,7 @@ python3 -m http.server 8000      # then open http://localhost:8000
 | `C` | Cycle camera (third person / first person / far) |
 | `H` | Toggle first person |
 | `M` | Mute audio |
-| `Esc` | Pause (releases the mouse) |
+| `Esc` | Release the mouse (the game keeps running — click to capture it again) |
 
 ## What's in the prototype
 
