@@ -5,6 +5,13 @@
   var renderer, scene, camera, clock, sunTime = 12.6, running = false;
   var input = { keys: {}, mx: 0, my: 0, fire: false, aim: false };
   var fps = 0, fpsAcc = 0, fpsN = 0, startGameRef = null, toggleControlsRef = null;
+
+  function showControls(on) {
+    var c = document.getElementById('controls');
+    if (!c) return;
+    c.hidden = !on;
+    c.style.display = on ? 'flex' : 'none';
+  }
   G.input = input;
 
   var DAY_FOG = new THREE.Color(0xb9cfe6), NIGHT_FOG = new THREE.Color(0x0b1220);
@@ -97,9 +104,14 @@
 
     function toggleControls() {
       var c = el('controls');
-      if (c) c.hidden = !c.hidden;
+      if (!c) return;
+      c.hidden = !c.hidden;
+      showControls(!c.hidden);
     }
     toggleControlsRef = toggleControls;
+    // A cached older page can carry a CSS rule that overrides the hidden attribute, so the
+    // list is also forced off inline: nothing controls-shaped may sit over the game.
+    showControls(false);
 
     document.addEventListener('keydown', function (e) {
       var k = e.code;
